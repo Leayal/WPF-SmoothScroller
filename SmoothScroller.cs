@@ -102,17 +102,25 @@ namespace Leayal.WPF
                 {
                     if (value < 0)
                     {
-                        this.currentScrollValue = 0;
-                    }
-                    else if (value > this.panel.ScrollableHeight)
-                    {
-                        this.currentScrollValue = this.panel.ScrollableHeight;
+                        if (oldval != 0)
+                        {
+                            Interlocked.Exchange(ref this.currentScrollValue, 0d);
+                        }
                     }
                     else
                     {
-                        this.currentScrollValue = value;
+                        var max = this.panel.ScrollableHeight;
+                        if (value > max)
+                        {
+                            Interlocked.Exchange(ref this.currentScrollValue, max);
+                            this.StartScroll(max);
+                        }
+                        else
+                        {
+                            Interlocked.Exchange(ref this.currentScrollValue, value);
+                            this.StartScroll(value);
+                        }
                     }
-                    this.StartScroll(this.currentScrollValue);
                 }
             }
         }
