@@ -1,2 +1,2 @@
 # WPF-SmoothScroller
- (WIP) Handle smooth scroll for WPF's ScrollViewer and its derived classes.
+ (WIP) Handle smooth vertical scroll for WPF's ScrollViewer and its derived classes.
