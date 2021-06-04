@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RootNamespace>Leayal.WPF</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>Leayal.WPF.SmoothScroller</AssemblyName>
+  </PropertyGroup>
+
+</Project>
