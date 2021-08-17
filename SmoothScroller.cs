@@ -18,7 +18,7 @@ namespace Leayal.WPF
             // EaseOut.Freeze();
             AnimatedScrollValueProperty = DependencyProperty.Register("AnimatedScrollValue", typeof(double), typeof(SmoothScroller), new UIPropertyMetadata(0d, (obj, value) =>
             {
-                if (obj is SmoothScroller scroller && scroller.isanimating)
+                if (obj is SmoothScroller scroller && Interlocked.CompareExchange(ref scroller.isanimating, 1, 1) == 1)
                 {
                     scroller.panel.ScrollToVerticalOffset((double)value.NewValue);
                 }
@@ -27,22 +27,19 @@ namespace Leayal.WPF
 
         private double currentScrollValue;
         private readonly ScrollViewer panel;
-        private volatile bool isanimating;
+        private int isanimating;
 
         private SmoothScroller()
         {
             this.currentScrollValue = 0d;
-            this.isanimating = false;
+            this.isanimating = 0;
         }
 
         public SmoothScroller(ScrollViewer panel) : base()
         {
             this.panel = panel;
-            if (!this.isanimating)
-            {
-                Interlocked.Exchange(ref this.currentScrollValue, panel.VerticalOffset);
-                this.SetValue(AnimatedScrollValueProperty, panel.VerticalOffset);
-            }
+            Interlocked.Exchange(ref this.currentScrollValue, panel.VerticalOffset);
+            this.SetValue(AnimatedScrollValueProperty, panel.VerticalOffset);
             this.panel.ScrollChanged += this.Panel_ScrollChanged;
             // this.GetGridFromPanel();
             // this.scrollBar.ValueChanged += ScrollBar_ValueChanged;
@@ -50,7 +47,7 @@ namespace Leayal.WPF
 
         private void Panel_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (!this.isanimating)
+            if (Interlocked.CompareExchange(ref this.isanimating, 1, 1) == 0)
             {
                 Interlocked.Exchange(ref this.currentScrollValue, e.VerticalOffset);
                 this.SetValue(AnimatedScrollValueProperty, e.VerticalOffset);
@@ -69,7 +66,7 @@ namespace Leayal.WPF
             verticalAnimation.Completed += Clock_Completed;
             verticalAnimation.FillBehavior = FillBehavior.HoldEnd;
 
-            this.isanimating = true;
+            Interlocked.CompareExchange(ref this.isanimating, 1, 0);
 
             this.BeginAnimation(AnimatedScrollValueProperty, verticalAnimation, HandoffBehavior.Compose);
 
@@ -97,30 +94,23 @@ namespace Leayal.WPF
             }
             set
             {
-                var oldval = Interlocked.CompareExchange(ref this.currentScrollValue, 0d, 0d);
-                if (oldval != value)
+                var clamped = value;
+                if (clamped < 0)
                 {
-                    if (value < 0)
+                    clamped = 0d;
+                }
+                else if (clamped > this.panel.ScrollableHeight)
+                {
+                    var max = this.panel.ScrollableHeight;
+                    if (clamped > max)
                     {
-                        if (oldval != 0)
-                        {
-                            Interlocked.Exchange(ref this.currentScrollValue, 0d);
-                        }
+                        clamped = max;
                     }
-                    else
-                    {
-                        var max = this.panel.ScrollableHeight;
-                        if (value > max)
-                        {
-                            Interlocked.Exchange(ref this.currentScrollValue, max);
-                            this.StartScroll(max);
-                        }
-                        else
-                        {
-                            Interlocked.Exchange(ref this.currentScrollValue, value);
-                            this.StartScroll(value);
-                        }
-                    }
+                }
+                var oldvalue = Interlocked.Exchange(ref this.currentScrollValue, clamped);
+                if (oldvalue != clamped)
+                {
+                    this.StartScroll(clamped);
                 }
             }
         }
@@ -143,11 +133,12 @@ namespace Leayal.WPF
 
         private void StopAnimation(double val)
         {
-            // this.SetCurrentValue(AnimatedScrollValueProperty, val);
-            this.BeginAnimation(AnimatedScrollValueProperty, null, HandoffBehavior.SnapshotAndReplace);
-            this.SetValue(AnimatedScrollValueProperty, val);
-            // this.SetCurrentValue(AnimatedScrollValueProperty, val);
-            this.isanimating = false;
+            if (Interlocked.CompareExchange(ref this.isanimating, 0, 1) == 1)
+            {
+                this.BeginAnimation(AnimatedScrollValueProperty, null, HandoffBehavior.SnapshotAndReplace);
+                this.SetValue(AnimatedScrollValueProperty, val);
+                this.SetCurrentValue(AnimatedScrollValueProperty, val);
+            }
         }
 
         public void Dispose()
